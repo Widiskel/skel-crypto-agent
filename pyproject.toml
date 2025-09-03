@@ -1,0 +1,17 @@
+[project]
+# Defines metadata about your project for pip
+name = "sentient_narrative_agent"
+version = "0.1.0"
+requires-python = ">=3.13"
+description = "An AI agent to analyze cryptocurrency market narratives."
+dependencies = [
+  "sentient-agent-framework",
+  "python-dotenv",
+  "openai",
+  "httpx",
+  "loguru",
+]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
