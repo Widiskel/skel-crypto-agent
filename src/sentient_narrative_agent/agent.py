@@ -41,15 +41,18 @@ class NarrativeAgent(AbstractAgent):
         """Uses the LLM to classify the user's intent based on the prompt and history."""
         logger.info(f"Classifying intent for prompt: '{prompt}'")
         
-        classification_messages = history + [{
-            "role": "user",
-            "content": (
-                "Analyze the user's latest request based on the conversation history. "
-                "Classify the primary intent. Respond with ONLY one of the following keywords: "
-                "'get_trending' or 'general_chat'.\n\n"
-                f"User request: \"{prompt}\""
-            )
-        }]
+        classification_prompt = (
+            "You are an expert intent classifier. Analyze the user's 'LATEST MESSAGE' in the context of the 'CONVERSATION HISTORY'. "
+            "Your task is to determine if the user is asking for a real-time, up-to-date list of trending cryptocurrencies, or if they are having a general conversation (which may include follow-up questions about data already provided). "
+            "Respond with ONLY one of the following keywords: 'get_trending' or 'general_chat'.\n\n"
+            "--- CONVERSATION HISTORY ---\n"
+            f"{json.dumps(history, indent=2)}\n\n"
+            "--- LATEST MESSAGE ---\n"
+            f"\"{prompt}\"\n\n"
+            "Intent:"
+        )
+        
+        classification_messages = [{"role": "user", "content": classification_prompt}]
         intent = await self.model_provider.query(classification_messages)
         
         cleaned_intent = intent.strip().lower().replace("'", "").replace("\"", "")
@@ -58,6 +61,7 @@ class NarrativeAgent(AbstractAgent):
         if "trending" in cleaned_intent:
             return "get_trending"
         return "general_chat"
+
 
     async def assist(self, session: Session, query: Query, response_handler: ResponseHandler):
         events = EventBuilder(handler=response_handler)
