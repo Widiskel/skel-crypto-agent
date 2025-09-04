@@ -1,5 +1,5 @@
 from openai import AsyncOpenAI
-from typing import AsyncIterator
+from typing import AsyncIterator, List, Dict
 from loguru import logger
 
 class AgentProvider:
@@ -14,18 +14,22 @@ class AgentProvider:
             "Do not provide financial advice. Your tone is objective and analytical."
         )
 
-    async def query_stream(self, prompt: str) -> AsyncIterator[str]:
-        """Sends a prompt to the model and yields the response in a stream of chunks."""
-        logger.info(f"Sending prompt to LLM. Preview: '{prompt[:100]}...'")
-        messages = [{"role": "system", "content": self.system_prompt}, {"role": "user", "content": prompt}]
+    async def query_stream(self, messages: List[Dict[str, str]]) -> AsyncIterator[str]:
+        """
+        Sends a structured list of messages to the model and yields the response in chunks.
+        """
+        full_messages = [{"role": "system", "content": self.system_prompt}] + messages
+        
+        logger.debug(f"Sending payload with {len(full_messages)} messages to LLM:")
+        
         stream = await self._client.chat.completions.create(
-            model=self._model, messages=messages, stream=True, temperature=0.5
+            model=self._model, messages=full_messages, stream=True, temperature=0.5
         )
         async for chunk in stream:
             if chunk.choices[0].delta.content is not None:
                 yield chunk.choices[0].delta.content
                 
-    async def query(self, prompt: str) -> str:
-        """Sends a prompt and returns the full, complete response (non-streaming)."""
-        chunks = [chunk async for chunk in self.query_stream(prompt)]
+    async def query(self, messages: List[Dict[str, str]]) -> str:
+        """Sends a structured list of messages and returns the full response."""
+        chunks = [chunk async for chunk in self.query_stream(messages)]
         return "".join(chunks)
