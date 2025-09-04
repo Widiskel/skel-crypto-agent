@@ -1,31 +1,23 @@
+
 # Sentient Narrative Agent
 
 ## 📜 Overview
 
-The **Sentient Narrative Agent** is a modular AI agent designed to analyze market narratives in the cryptocurrency space. It connects to a powerful Large Language Model (LLM) to provide insightful responses and integrates with real-time data sources to inform its analysis.
+The **Sentient Narrative Agent** is a sophisticated, modular AI agent designed to analyze and discuss market narratives in the cryptocurrency space. It leverages a powerful Large Language Model (LLM) for natural language understanding and generation, combined with real-time data providers to deliver insightful, context-aware responses.
 
-This initial version serves as a robust foundation, capable of handling general queries, fetching live trending crypto data from CoinGecko, and communicating its status through a structured event pattern. The project is built using the `sentient-agent-framework` with a clean, modular, and scalable architecture.
+This agent features an advanced architecture that includes:
+* An LLM-based intent classifier to understand user requests in multiple languages.
+* An internal, session-based memory manager for stateful, multi-turn conversations.
+* A "tool-use" capability, allowing it to fetch and reason about real-time market data from CoinGecko.
+* A structured event system (`EventBuilder`) for detailed, real-time communication with the client.
 
 ## ✨ Core Features
 
-* **LLM Integration**: Connects directly to Fireworks AI to stream responses for general-purpose questions.
-* **Real-time Market Data**: Fetches and displays formatted, real-time trending cryptocurrency data from the CoinGecko public API.
-* **Structured Event Communication**: Uses a custom `EventBuilder` to communicate the agent's state (`START`, `FETCH`, `SOURCES`, `FINAL_RESPONSE`), allowing for a rich and interactive client-side experience.
-* **Modular Provider Pattern**: External services (like the LLM and CoinGecko) are abstracted into separate "provider" classes, making the agent easy to extend with new data sources.
-* **Welcome Message**: Greets the user with a welcome message on an empty initial prompt.
-
-## ⚡ Event Pattern
-
-Instead of returning a single, monolithic response, this agent communicates its workflow through a series of distinct events. This allows any client application to provide users with real-time feedback on the agent's progress.
-
-The primary events include:
-* **`START`**: Signals that the agent has begun processing a request.
-* **`FETCH`**: Indicates that the agent is fetching data from an external source (e.g., "fetching trending coins from CoinGecko").
-* **`SOURCES`**: Provides metadata about the data sources used (e.g., `{"provider": "CoinGecko", "count": 15}`).
-* **`FINAL_RESPONSE`**: Delivers the final, user-facing answer, which can be a block of text or a stream of text chunks.
-* **`ERROR`**: Emits a structured error message if something goes wrong.
-
-This pattern is managed by the `EventBuilder` class in `utils/event.py`.
+* **Conversational Memory**: Maintains an internal chat history for each session (`activity_id`), allowing for contextual follow-up questions.
+* **LLM-Powered Intent Classification**: Intelligently determines user intent (e.g., a data request vs. a general chat question) to provide the most relevant response.
+* **Hybrid Response Generation**: For data-specific queries (like "trending"), it fetches real-time data from CoinGecko, uses Python to format it into a precise table, and then instructs the LLM to generate an insightful narrative around that data.
+* **Structured Event Communication**: Emits a rich set of events (`INFO`, `FETCH`, `SOURCES`, `FINAL_RESPONSE`, `ERROR`) so that any client application can display a detailed, step-by-step progress of the agent's actions.
+* **Fully Modular & Scalable**: Built with a clean `src` layout and a provider pattern that makes it easy to add new data sources (like NewsAPI) or capabilities in the future.
 
 ## 🚀 Setup and Installation
 
@@ -51,19 +43,19 @@ Follow these steps to set up and run the project locally.
     ```
 
 3.  **Configure Environment Variables**
-    Create a `.env` file in the project root. You can copy the example file first:
+    Create a `.env` file from the provided example and add your secret keys.
     ```bash
-    # cp .env.example .env 
-    # nano .env
+    cp .env.example .env
+    nano .env
     ```
-    Your `.env` file must contain the following keys:
+    Your `.env` file must contain:
     ```env
     FIREWORKS_API_KEY="your_fireworks_api_key_here"
     COINGECKO_API_KEY="your_coingecko_demo_key_here"
     ```
 
 4.  **Install Dependencies**
-    Install the project and all its dependencies in editable mode.
+    Install the project and all its dependencies in editable mode using the `pyproject.toml` file.
     ```bash
     pip install -e .
     ```
@@ -75,11 +67,16 @@ Once the installation is complete, start the agent server with:
 python main.py
 ```
 
-Agent will run on port 8000
+The server will run on `http://0.0.0.0:8000`.
 
-### ▶️ Test Sentient Agent Client
+To interact with the agent, use the [Sentient Agent Client](https://github.com/sentient-agi/Sentient-Agent-Client) or a similar tool to send `POST` requests to the `/assist` endpoint.
 
-Look at sentient agent client [here](https://github.com/sentient-agi/Sentient-Agent-Client), follow setup guide and run client with 
-```bash
-python3 -m src.sentient_agent_client --url http://0.0.0.0:8000/assist
-```
+### Example Conversation Flow
+
+1.  **User:** `what is trending in crypto?` (Agent fetches data, LLM creates a narrative + table)
+2.  **User:** `tell me more about the first one on that list` (Agent uses chat history to understand "the first one" and provides a detailed answer)
+
+## 🔮 Future Development
+
+* **NewsAPI Integration**: The next logical step is to build a `NewsProvider` to fetch news articles related to trending tokens.
+* **Enhanced Narrative Analysis**: Combine market data from CoinGecko with headlines from the NewsProvider to generate true, data-backed market narratives.
