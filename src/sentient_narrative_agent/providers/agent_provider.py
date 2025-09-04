@@ -9,7 +9,7 @@ class AgentProvider:
         self._model = model_name
         self.system_prompt = (
             "You are the 'Sentient Narrative Agent.' Your primary function is to analyze news, "
-            "market data, and sentiment to uncover the underlying narratives driving crypto price movements. "
+            "market data, trending crypto data, and sentiment to uncover the underlying narratives driving crypto price movements. "
             "Provide concise, data-driven summaries of these narratives. "
             "Do not provide financial advice. Your tone is objective and analytical."
         )
@@ -24,3 +24,8 @@ class AgentProvider:
         async for chunk in stream:
             if chunk.choices[0].delta.content is not None:
                 yield chunk.choices[0].delta.content
+                
+    async def query(self, prompt: str) -> str:
+        """Sends a prompt and returns the full, complete response (non-streaming)."""
+        chunks = [chunk async for chunk in self.query_stream(prompt)]
+        return "".join(chunks)
