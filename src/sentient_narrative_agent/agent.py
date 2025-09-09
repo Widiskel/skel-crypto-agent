@@ -30,7 +30,7 @@ class NarrativeAgent(AbstractAgent):
         logger.info(f"Request {request_id} for Activity {activity_id}: Received prompt: '{prompt}'")
         
         try:
-            if not prompt:
+            if not prompt or prompt.lower() == "hello":
                 await events.final_block(self.welcome_message)
                 return
 
