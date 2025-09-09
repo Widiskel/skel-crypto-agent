@@ -61,6 +61,7 @@ class NarrativeAgent(AbstractAgent):
             elif intent == "analyze_coin" and entity:
                 await events.fetch(f"Searching for coins with symbol: '{entity}'")
                 matches = await self.crypto_provider.find_coins_by_symbol(entity.get("coin"))
+                await events.sources(provider="CoinGecko")
                 
                 if not matches:
                     tool_context = f"You were asked to analyze '{entity}', but you could not find any cryptocurrency with that symbol. Inform the user."
