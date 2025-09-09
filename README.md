@@ -1,129 +1,122 @@
-
 # Sentient Narrative Agent
 
-## 📜 Overview
+## Overview
 
-The **Sentient Narrative Agent** is a sophisticated, modular AI agent designed to analyze and discuss market narratives in the cryptocurrency space. It leverages a powerful Large Language Model (LLM) for natural language understanding and generation, combined with real-time data providers to deliver insightful, context-aware responses.
+An AI agent that analyzes cryptocurrency market narratives using an LLM combined with real-time data from CoinGecko and CryptoPanic (Developer API). The agent formats data as Markdown tables, appends sources, computes a deterministic sentiment score, and adapts to the user’s language (English/Indonesian).
 
-This agent features an advanced architecture that includes:
-* An LLM-based intent classifier to understand user requests in multiple languages.
-* An internal, session-based memory manager for stateful, multi-turn conversations (including trending memory per session).
-* A "tool-use" capability, allowing it to fetch and reason about real-time market data from CoinGecko.
-* A structured event system (`EventBuilder`) for detailed, real-time communication with the client.
+Highlights:
+- Intent classification with an LLM and session-scoped chat history.
+- Trending memory per session with resolution by symbol, name, or index.
+- Coin details and trending from CoinGecko; news from CryptoPanic.
+- Structured events for UI integrations (start, fetch, sources, metrics, final, error).
 
-## ✨ Core Features
+## Features
 
-* **Conversational Memory**: Maintains an internal chat history for each session (`activity_id`), allowing for contextual follow-up questions.
-* **LLM-Powered Intent Classification**: Intelligently determines user intent (e.g., a data request vs. a general chat question) to provide the most relevant response.
-* **Hybrid Response Generation**: For data-specific queries (like "trending"), it fetches real-time data from CoinGecko, uses Python to format it into a precise table, and then instructs the LLM to generate an insightful narrative around that data.
-* **Structured Event Communication**: Emits a rich set of events (`START`, `FETCH`, `PROGRESS`, `SOURCES`, `METRICS`, `FINAL_RESPONSE`, `ERROR`) so that clients can display a clear, step-by-step progress of the agent's actions.
-* **Fully Modular & Scalable**: Built with a clean `src` layout and a provider pattern that makes it easy to add new data sources (like NewsAPI) or capabilities in the future.
+- Conversational memory per `activity_id`.
+- Real-time data fetch and narrative generation with pre-formatted tables.
+- Deterministic Overall Sentiment header (0–100) from price momentum (24h/7d/30d) and CryptoPanic bull/bear counts.
+- News “Sources” uses the publisher’s `original_url` (not cryptopanic-hosted URLs).
+- Language adaptation (responds in user’s language) and profanity sanitization.
+- Coin resolution from trending by symbol, name, or index; fallback to CoinGecko `/search` ranked by market_cap_rank; cap to top results.
+- Markdown pipe tables for technicals and news.
 
-## 🚀 Setup and Installation
+## Setup
 
-Follow these steps to set up and run the project locally.
+Prerequisites:
+- Python 3.13+
+- Fireworks AI API key
+- CoinGecko demo API key
+- Optional: CryptoPanic Developer API key
 
-### 1. Prerequisites
-* Python 3.13+
-* An active API Key from [Fireworks AI](https://fireworks.ai/).
-* A Demo/Public API Key from [CoinGecko](https://www.coingecko.com/en/api).
+Install:
+```bash
+git clone https://github.com/Widiskel/sentient-narrative-agent.git
+cd sentient-narrative-agent
+python3 -m venv venv && source venv/bin/activate
+cp .env.example .env
+pip install -e .
+```
 
-### 2. Installation Steps
+Environment variables (`.env`):
+```env
+FIREWORKS_API_KEY="..."
+COINGECKO_API_KEY="..."
+# Optional (enables news):
+CRYPTOPANIC_API_KEY="..."
+```
 
-1.  **Clone the Repository**
-    ```bash
-    git clone https://github.com/Widiskel/sentient-narrative-agent.git
-    cd sentient-narrative-agent
-    ```
+## Run
 
-2.  **Create and Activate Virtual Environment**
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
-
-3.  **Configure Environment Variables**
-    Create a `.env` file from the provided example and add your secret keys.
-    ```bash
-    cp .env.example .env
-    nano .env
-    ```
-    Your `.env` file must contain:
-    ```env
-    FIREWORKS_API_KEY="your_fireworks_api_key_here"
-    COINGECKO_API_KEY="your_coingecko_demo_key_here"
-    ```
-
-4.  **Install Dependencies**
-    Install the project and all its dependencies in editable mode using the `pyproject.toml` file.
-    ```bash
-    pip install -e .
-    ```
-
-## ▶️ Running the Agent
-
-Once the installation is complete, start the agent server with:
 ```bash
 python main.py
 ```
 
-The server will run on `http://0.0.0.0:8000`.
+Default server: `http://0.0.0.0:8000`. Use the Sentient Agent Client or any HTTP client to call `/assist`.
 
-To interact with the agent, use the [Sentient Agent Client](https://github.com/sentient-agi/Sentient-Agent-Client) or a similar tool to send `POST` requests to the `/assist` endpoint.
+## Events
 
-### Example Conversation Flow
+Emitted via `EventBuilder`:
+- START, FETCH, PROGRESS, SOURCES, METRICS, FINAL_RESPONSE, ERROR
 
-1.  **User:** `what is trending in crypto?` → Agent fetches CoinGecko trending, saves it to session trending memory, emits SOURCES with raw JSON, and presents a narrative + table.
-2.  **User:** `what do you think about SKY?` → Agent detects `SKY` in the trending memory, resolves its coin id(s) without search, fetches details directly, emits SOURCES for coin_details, and presents the analysis.
-3.  **User:** `tell me more about the first one on that list` → Agent uses chat history to resolve references like "the first one".
+Source types:
+- `trending`, `coin_list`, `coin_details`, `news`
 
-## 📡 Event System
-
-The agent communicates progress using structured events via `EventBuilder`. Below are the event names and payload shapes.
-
-- START: plain text block indicating the agent started processing.
-- FETCH: plain text block describing what the agent is fetching.
-- PROGRESS: JSON with `{"done": number, "total": number, ...}` for long-running tasks.
-- METRICS: JSON for optional telemetry (latencies, counters, etc.).
-- FINAL_RESPONSE: streamed or full text response for the user.
-- ERROR: JSON error payload `{"message": str, "error_code": int, "details": {...}}`.
-
-### SOURCES Event
-
-Emitted when the agent uses external data. Payload schema:
-
+Example:
 ```json
 {
-  "provider": "coingecko",
-  "type": "trending" | "coin_list" | "coin_details",
-  "data": {} // raw JSON response from Data Sources
+  "provider": "cryptopanic",
+  "type": "news",
+  "data": { "results": [ /* raw Developer API payload */ ] }
 }
 ```
 
-Types are defined by the enum:
+## Trending Memory
 
-```text
-SourceType
-- trending
-- coin_list
-- coin_details
-```
+After fetching trending, the agent stores per-session:
+- Symbol→[coin_id]
+- Name→[coin_id]
+- Index→coin_id
 
-Examples:
-- Trending: `type = "trending"`, `data` = object returned by `/search/trending`.
-- Coin List (used for symbol search fallback): `type = "coin_list"`, `data` = array returned by `/coins/list`.
-- Coin Details: `type = "coin_details"`, `data` = map `{ "<coin_id>": <raw coin JSON>, ... }` for the set of coins fetched.
+When asked “analyze $BTC”, “bagaimana soal Aethir”, or “analisa nomor 3”, it resolves to coin IDs from memory. If resolution fails, it falls back to CoinGecko `/search` and selects the top-ranked IDs.
 
-## 🧠 Trending Memory
+## Sentiment & News
 
-When a user asks for trending, the agent saves the session’s trending data and builds a `SYMBOL → [coin_id]` map. In later turns:
+- CryptoPanic Developer API: uses `auth_token`, `public=true`, and `regions=en`.
+- Deterministic sentiment: combines price momentum (24h/7d/30d) and counts of `filter=bullish` vs `filter=bearish` posts.
+- Sources list uses `original_url` only.
+- Provider is resilient: retry/backoff, brief caching, and cooldown on rate limits.
 
-- If the user mentions a symbol present in trending (e.g., `SKY` or `$SKY`), the agent resolves coin ids from this memory and fetches details directly without using a broad symbol search.
-- If the symbol is not in current session trending memory, the agent falls back to an exact symbol search and emits a SOURCES event for `coin_list` used in that search.
+## Example Interaction Flow
 
-Note: Trending responses are cached briefly on the provider to reduce rate-limits while keeping near real-time behavior.
+Enter your message: hello
+EventName.FINAL_RESPONSE
+Hello! I’m here to break down the crypto narratives driving price moves. Ask about trends or any coin, and I’ll keep it concise.
 
-## 🔮 Future Development
+Enter your message: give me information about trending cryptocurrency today
+EventName.FINAL_RESPONSE
+Today’s market shows strong movers and some pullbacks. Quick snapshot:
 
-* **NewsAPI Integration**: The next logical step is to build a `NewsProvider` to fetch news articles related to trending tokens.
-* **Enhanced Narrative Analysis**: Combine market data from CoinGecko with headlines from the NewsProvider to generate true, data-backed market narratives.
+# | Name | Symbol | Rank | Price (USD) | 24h %
+--- | --- | --- | --- | --- | ---
+1 | Avantis | AVNT | #812 | $0.2663 | -29.11%
+2 | MYX Finance | MYX | #73 | $16.7062 | +134.21%
+3 | Worldcoin | WLD | #47 | $1.8844 | +28.91%
+4 | OpenLedger | OPEN | #298 | $1.1322 | -26.33%
+5 | Sui | SUI | #18 | $3.4774 | -0.30%
+
+Enter your message: give me information about SUI
+EventName.FINAL_RESPONSE
+Overall Sentiment: Neutral (score: 49/100)
+
+Name | Rank | Price (USD) | 24h % | 7d % | 30d %
+--- | --- | --- | --- | --- | ---
+Sui | #18 | $3.4700 | -0.77% | +5.58% | -9.18%
+
+Sui holds steady with a slight 24h dip and a weekly gain, while headlines highlight ecosystem activity and a recent protocol incident.
+
+Title | Source | Published
+--- | --- | ---
+Lion Group Moves Solana and Sui Holdings to Hyperliquid | https://cryptopanic.com/news/25071764/Lion-Group-Moves-Solana-and-Sui-Holdings-to-Hyperliquid | 2025-09-08T13:45:45Z
+GoPlus Expands SafeToken Locker Service to Support Sui Blockchain | https://cryptopanic.com/news/25091783/GoPlus-Expands-SafeToken-Locker-Service-to-Support-Sui-Blockchain | 2025-09-08T13:01:08Z
+Nemo Protocol Loses $2.4M in Sui Network Hack | https://cryptopanic.com/news/25070498/Crypto-News-Nemo-Protocol-Loses-24M-in-Sui-Network-Hack | 2025-09-08T12:02:14Z
+Altcoin Shake‑Up: Which Alts Are Poised for Gains in September? | https://cryptopanic.com/news/25066835/Altcoin-Shake-Up-Which-Alts-Are-Poised-for-Biggest-Gains-in-September | 2025-09-08T10:17:59Z

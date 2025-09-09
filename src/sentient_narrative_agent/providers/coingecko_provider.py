@@ -18,6 +18,7 @@ class CoinGeckoProvider(BaseCryptoProvider):
         self._last_coin_list_raw: Optional[list[dict]] = None
         self._last_trending_raw: Optional[dict] = None
         self._last_coin_details_raw: dict[str, dict] = {}
+        self._last_search_raw: Optional[dict] = None
 
     async def _initialize_coin_list_cache(self) -> None:
         if self._coin_list_cache is None:
@@ -35,6 +36,7 @@ class CoinGeckoProvider(BaseCryptoProvider):
             try:
                 async with httpx.AsyncClient(timeout=timeout) as client:
                     resp = await client.get(url, params=q)
+                logger.info(f"GET {path} -> {resp.status_code}")
                 if resp.status_code == 429:
                     retry_after = float(resp.headers.get("Retry-After", backoff))
                     logger.warning(f"Rate limited by CoinGecko (429). Retrying in {retry_after:.1f}s…")
@@ -98,3 +100,30 @@ class CoinGeckoProvider(BaseCryptoProvider):
 
     def get_last_coin_details_raw(self, coin_id: str) -> Optional[dict]:
         return self._last_coin_details_raw.get(coin_id)
+
+    async def search(self, query: str) -> dict:
+        """Search coins by free-text query using CoinGecko /search endpoint."""
+        resp = await self._get("/search", params={"query": query})
+        raw = resp.json()
+        self._last_search_raw = raw
+        return raw
+
+    async def ranked_ids_by_symbol(self, symbol: str, limit: int = 3) -> list[str]:
+        """Return up to 'limit' coin IDs for a symbol, ranked by market_cap_rank asc."""
+        try:
+            data = await self.search(symbol)
+            coins = data.get("coins", []) if isinstance(data, dict) else []
+            target = symbol.lower()
+            filtered = [c for c in coins if str(c.get("symbol", "")).lower() == target]
+            def rank_key(c):
+                r = c.get("market_cap_rank")
+                return float('inf') if r in (None, 0) else r
+            filtered.sort(key=rank_key)
+            ids = [c.get("id") for c in filtered if c.get("id")]
+            return ids[:limit]
+        except Exception as e:
+            logger.warning(f"Search ranking failed for symbol {symbol}: {e}")
+            return []
+
+    def get_last_search_raw(self) -> Optional[dict]:
+        return self._last_search_raw

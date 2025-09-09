@@ -24,6 +24,7 @@ class SourceType(str, Enum):
     COIN_LIST = "coin_list"
     TRENDING = "trending"
     COIN_DETAILS = "coin_details"
+    NEWS = "news"
 
 async def emit_text(handler: ResponseHandler, name: EventName | str, text: str) -> None:
     await handler.emit_text_block(str(name), text)

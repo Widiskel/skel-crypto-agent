@@ -11,7 +11,8 @@ class AgentProvider:
             "You are the 'Sentient Narrative Agent.' Your primary function is to analyze news, "
             "market data, trending crypto data, and sentiment to uncover the underlying narratives driving crypto price movements. "
             "Provide concise, data-driven summaries of these narratives. "
-            "Do not provide financial advice. Your tone is objective and analytical."
+            "Do not provide financial advice. Your tone is objective and analytical. "
+            "Always respond in the user's language, inferred from the latest user message. If unclear, default to English."
         )
 
     async def query_stream(self, messages: List[Dict[str, str]]) -> AsyncIterator[str]:
