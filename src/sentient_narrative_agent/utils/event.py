@@ -20,6 +20,11 @@ class EventName(str, Enum):
     FINAL_RESPONSE = "FINAL_RESPONSE"
     ERROR = "ERROR"
 
+class SourceType(str, Enum):
+    COIN_LIST = "coin_list"
+    TRENDING = "trending"
+    COIN_DETAILS = "coin_details"
+
 async def emit_text(handler: ResponseHandler, name: EventName | str, text: str) -> None:
     await handler.emit_text_block(str(name), text)
 
@@ -66,7 +71,9 @@ class EventBuilder:
     async def start(self, msg: str = "Initializing analysis…") -> None: await emit_start(self.handler, msg)
     async def fetch(self, what: str) -> None: await emit_fetch(self.handler, what)
     async def progress(self, done: int, total: int, **extra: Any) -> None: await emit_progress(self.handler, done, total, **extra)
-    async def sources(self, **info: Any) -> None: await emit_sources(self.handler, **info)
+    async def sources(self, provider: str, type: SourceType | str, data: Any) -> None:
+        t = type.value if isinstance(type, SourceType) else str(type)
+        await emit_sources(self.handler, provider=provider, type=t, data=data)
     async def metrics(self, **metrics_payload: Any) -> None: await emit_metrics(self.handler, **metrics_payload)
     def final_stream(self) -> _TextStream: return create_final_stream(self.handler)
     async def final_block(self, text: str) -> None: await emit_final_block(self.handler, text)

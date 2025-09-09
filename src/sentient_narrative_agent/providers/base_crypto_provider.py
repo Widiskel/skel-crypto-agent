@@ -14,3 +14,8 @@ class BaseCryptoProvider(ABC):
     @abstractmethod
     async def get_coin_details(self, coin_id: str) -> CoinDetails:
         pass
+
+    @abstractmethod
+    async def find_coins_by_symbol(self, symbol: str) -> List[Coin]:
+        """Find coins that exactly match a given symbol (case-insensitive)."""
+        pass

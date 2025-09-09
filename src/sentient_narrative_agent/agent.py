@@ -1,3 +1,5 @@
+import asyncio
+import re
 from loguru import logger
 from sentient_agent_framework import AbstractAgent, ResponseHandler, Session, Query
 from typing import List, Dict
@@ -6,7 +8,7 @@ from .utils.agent_utils import format_trending_data_as_table, get_intent_and_ent
 
 from .providers.agent_provider import AgentProvider
 from .providers.coingecko_provider import CoinGeckoProvider
-from .utils.event import EventBuilder
+from .utils.event import EventBuilder, SourceType
 
 class NarrativeAgent(AbstractAgent):
     def __init__(
@@ -20,6 +22,33 @@ class NarrativeAgent(AbstractAgent):
         self.crypto_provider = crypto_provider
         self.welcome_message = "Hello! I am the Sentient Narrative Agent. You can ask me about crypto trends or for an analysis of a specific coin."
         self.chat_histories: Dict[str, List[Dict[str, str]]] = defaultdict(list)
+        self._trending_memory: Dict[str, List] = {}
+        self._trending_symbol_to_ids: Dict[str, Dict[str, List[str]]] = {}
+
+    def _update_trending_memory(self, activity_id: str, trending_data: List) -> None:
+        self._trending_memory[activity_id] = trending_data
+        symbol_map: Dict[str, List[str]] = defaultdict(list)
+        try:
+            for tc in trending_data:
+                item = getattr(tc, "item", None)
+                if not item:
+                    continue
+                sym = str(item.symbol).upper()
+                cid = str(item.id)
+                if cid not in symbol_map[sym]:
+                    symbol_map[sym].append(cid)
+        except Exception as e:
+            logger.warning(f"Failed building trending symbol map: {e}")
+        self._trending_symbol_to_ids[activity_id] = symbol_map
+
+    def _extract_symbol_from_prompt(self, prompt: str, symbols: List[str]) -> str | None:
+        if not prompt or not symbols:
+            return None
+        for sym in symbols:
+            pattern = rf"(?i)(?:\$)?\b{re.escape(sym)}\b"
+            if re.search(pattern, prompt):
+                return sym
+        return None
 
     async def assist(self, session: Session, query: Query, response_handler: ResponseHandler):
         events = EventBuilder(handler=response_handler)
@@ -41,13 +70,21 @@ class NarrativeAgent(AbstractAgent):
             intent = intent_data.get("intent")
             entity = intent_data.get("entity")
             
+            if intent != "analyze_coin":
+                sym_map = self._trending_symbol_to_ids.get(activity_id, {})
+                candidate = self._extract_symbol_from_prompt(prompt, list(sym_map.keys()))
+                if candidate:
+                    intent = "analyze_coin"
+                    entity = {"coin": candidate}
+            
             messages_for_llm = history.copy()
             tool_context = ""
 
             if intent == "get_trending":
                 await events.fetch("trending coins from CoinGecko")
                 trending_data = await self.crypto_provider.get_trending()
-                await events.sources(provider="CoinGecko")
+                self._update_trending_memory(activity_id, trending_data)
+                await events.sources(provider="coingecko", type=SourceType.TRENDING, data=self.crypto_provider.get_last_trending_raw())
                 
                 table_string = format_trending_data_as_table(trending_data)
                 
@@ -59,17 +96,27 @@ class NarrativeAgent(AbstractAgent):
                 )
             
             elif intent == "analyze_coin" and entity:
-                await events.fetch(f"Searching for coins with symbol: '{entity}'")
-                matches = await self.crypto_provider.find_coins_by_symbol(entity.get("coin"))
-                await events.sources(provider="CoinGecko")
+                sym = entity.get("coin") if isinstance(entity, dict) else None
+                sym = sym.upper() if isinstance(sym, str) else None
+                sym_map = self._trending_symbol_to_ids.get(activity_id, {})
+                coin_ids: List[str] = []
+                if sym and sym in sym_map:
+                    coin_ids = sym_map[sym]
+                    await events.fetch(f"Using trending memory for symbol '{sym}' → ids: {coin_ids}")
+                    await events.sources(provider="coingecko", type=SourceType.TRENDING, data=self.crypto_provider.get_last_trending_raw())
+                else:
+                    await events.fetch(f"Searching for coins with symbol: '{sym}'")
+                    matches = await self.crypto_provider.find_coins_by_symbol(sym) if sym else []
+                    await events.sources(provider="coingecko", type=SourceType.COIN_LIST, data=self.crypto_provider.get_last_coin_list_raw())
+                    coin_ids = [m.id for m in matches]
                 
-                if not matches:
+                if not coin_ids:
                     tool_context = f"You were asked to analyze '{entity}', but you could not find any cryptocurrency with that symbol. Inform the user."
                 else:
-                    coin_ids = [match.id for match in matches]
                     await events.fetch(f"Fetching details for coin ID(s): {coin_ids}")
-                    
-                    all_details = [await self.crypto_provider.get_coin_details(cid) for cid in coin_ids]
+                    all_details = await asyncio.gather(*(self.crypto_provider.get_coin_details(cid) for cid in coin_ids))
+                    details_raw = {cid: self.crypto_provider.get_last_coin_details_raw(cid) for cid in coin_ids}
+                    await events.sources(provider="coingecko", type=SourceType.COIN_DETAILS, data=details_raw)
                     
                     analysis_table = format_technical_analysis_as_table(all_details)
                     descriptions = "\n".join([f"- {d.name}: {d.description.get('en', 'No description available.')[:200]}..." for d in all_details])

@@ -23,7 +23,10 @@ def format_technical_analysis_as_table(details: List[CoinDetails]) -> str:
     for coin in details:
         md = coin.market_data
         name = (coin.name[:col_name-3] + '...') if len(coin.name) > col_name else coin.name
-        rank = f"#{md.market_cap_rank}" if md.market_cap_rank else "N/A"
+        rank_val = coin.market_cap_rank if hasattr(coin, "market_cap_rank") else None
+        if rank_val is None:
+            rank_val = getattr(md, "market_cap_rank", None)
+        rank = f"#{rank_val}" if rank_val else "N/A"
         price = f"${md.current_price.get('usd', 0.0):,.4f}"
         
         change_24h = f"{md.price_change_percentage_24h or 0.0:+.2f}%"
@@ -45,8 +48,9 @@ async def get_intent_and_entity(prompt: str, history: List[Dict[str, str]], mode
     classification_prompt = (
         "You are an expert intent classifier and entity extractor. Analyze the user's 'LATEST MESSAGE'.\n"
         "First, classify the intent. Available intents are: 'get_trending', 'analyze_coin', 'general_chat'.\n"
-        "Second, if the intent is 'analyze_coin', extract the cryptocurrency symbol (e.g., from '$SOL', extract 'SOL'). The entity key should be 'coin'.\n"
-        "Respond with a JSON object: {\"intent\": \"...\", \"entity\": \"...\"}.\n\n"
+        "Second, if the intent is 'analyze_coin', extract the cryptocurrency symbol (e.g., from '$SOL', extract 'SOL').\n"
+        "Respond ONLY with JSON in this schema: {\"intent\": \"...\", \"entity\": {\"coin\": \"SYM\"} } for 'analyze_coin',\n"
+        "or {\"intent\": \"...\", \"entity\": null} otherwise. No extra text.\n\n"
         f"LATEST MESSAGE: \"{prompt}\"\n\n"
         "JSON Response:"
     )
@@ -57,11 +61,20 @@ async def get_intent_and_entity(prompt: str, history: List[Dict[str, str]], mode
     try:
         cleaned_json = response_text.strip().replace("```json", "").replace("```", "").strip()
         result = json.loads(cleaned_json)
-        logger.info(f"LLM classified as: {result}")
-        entity = result.get("entity")
-        if isinstance(entity, str):
-            entity = entity.replace("$", "").strip()
-        return {"intent": result.get("intent", "general_chat"), "entity": entity}
+        intent = result.get("intent", "general_chat")
+        raw_entity = result.get("entity")
+        entity_out = None
+        if intent == "analyze_coin":
+            symbol = None
+            if isinstance(raw_entity, dict):
+                symbol = raw_entity.get("coin") or raw_entity.get("symbol")
+            elif isinstance(raw_entity, str):
+                symbol = raw_entity
+            if isinstance(symbol, str):
+                symbol = symbol.replace("$", "").strip().upper()
+            entity_out = {"coin": symbol} if symbol else None
+        logger.info(f"LLM classified as: intent={intent}, entity={entity_out}")
+        return {"intent": intent, "entity": entity_out}
     except json.JSONDecodeError:
         logger.error(f"Failed to decode JSON from intent classifier: {response_text}")
         return {"intent": "general_chat", "entity": None}

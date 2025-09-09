@@ -7,7 +7,7 @@ The **Sentient Narrative Agent** is a sophisticated, modular AI agent designed t
 
 This agent features an advanced architecture that includes:
 * An LLM-based intent classifier to understand user requests in multiple languages.
-* An internal, session-based memory manager for stateful, multi-turn conversations.
+* An internal, session-based memory manager for stateful, multi-turn conversations (including trending memory per session).
 * A "tool-use" capability, allowing it to fetch and reason about real-time market data from CoinGecko.
 * A structured event system (`EventBuilder`) for detailed, real-time communication with the client.
 
@@ -16,7 +16,7 @@ This agent features an advanced architecture that includes:
 * **Conversational Memory**: Maintains an internal chat history for each session (`activity_id`), allowing for contextual follow-up questions.
 * **LLM-Powered Intent Classification**: Intelligently determines user intent (e.g., a data request vs. a general chat question) to provide the most relevant response.
 * **Hybrid Response Generation**: For data-specific queries (like "trending"), it fetches real-time data from CoinGecko, uses Python to format it into a precise table, and then instructs the LLM to generate an insightful narrative around that data.
-* **Structured Event Communication**: Emits a rich set of events (`INFO`, `FETCH`, `SOURCES`, `FINAL_RESPONSE`, `ERROR`) so that any client application can display a detailed, step-by-step progress of the agent's actions.
+* **Structured Event Communication**: Emits a rich set of events (`START`, `FETCH`, `PROGRESS`, `SOURCES`, `METRICS`, `FINAL_RESPONSE`, `ERROR`) so that clients can display a clear, step-by-step progress of the agent's actions.
 * **Fully Modular & Scalable**: Built with a clean `src` layout and a provider pattern that makes it easy to add new data sources (like NewsAPI) or capabilities in the future.
 
 ## 🚀 Setup and Installation
@@ -73,8 +73,55 @@ To interact with the agent, use the [Sentient Agent Client](https://github.com/s
 
 ### Example Conversation Flow
 
-1.  **User:** `what is trending in crypto?` (Agent fetches data, LLM creates a narrative + table)
-2.  **User:** `tell me more about the first one on that list` (Agent uses chat history to understand "the first one" and provides a detailed answer)
+1.  **User:** `what is trending in crypto?` → Agent fetches CoinGecko trending, saves it to session trending memory, emits SOURCES with raw JSON, and presents a narrative + table.
+2.  **User:** `what do you think about SKY?` → Agent detects `SKY` in the trending memory, resolves its coin id(s) without search, fetches details directly, emits SOURCES for coin_details, and presents the analysis.
+3.  **User:** `tell me more about the first one on that list` → Agent uses chat history to resolve references like "the first one".
+
+## 📡 Event System
+
+The agent communicates progress using structured events via `EventBuilder`. Below are the event names and payload shapes.
+
+- START: plain text block indicating the agent started processing.
+- FETCH: plain text block describing what the agent is fetching.
+- PROGRESS: JSON with `{"done": number, "total": number, ...}` for long-running tasks.
+- METRICS: JSON for optional telemetry (latencies, counters, etc.).
+- FINAL_RESPONSE: streamed or full text response for the user.
+- ERROR: JSON error payload `{"message": str, "error_code": int, "details": {...}}`.
+
+### SOURCES Event
+
+Emitted when the agent uses external data. Payload schema:
+
+```json
+{
+  "provider": "coingecko",
+  "type": "trending" | "coin_list" | "coin_details",
+  "data": {} // raw JSON response from Data Sources
+}
+```
+
+Types are defined by the enum:
+
+```text
+SourceType
+- trending
+- coin_list
+- coin_details
+```
+
+Examples:
+- Trending: `type = "trending"`, `data` = object returned by `/search/trending`.
+- Coin List (used for symbol search fallback): `type = "coin_list"`, `data` = array returned by `/coins/list`.
+- Coin Details: `type = "coin_details"`, `data` = map `{ "<coin_id>": <raw coin JSON>, ... }` for the set of coins fetched.
+
+## 🧠 Trending Memory
+
+When a user asks for trending, the agent saves the session’s trending data and builds a `SYMBOL → [coin_id]` map. In later turns:
+
+- If the user mentions a symbol present in trending (e.g., `SKY` or `$SKY`), the agent resolves coin ids from this memory and fetches details directly without using a broad symbol search.
+- If the symbol is not in current session trending memory, the agent falls back to an exact symbol search and emits a SOURCES event for `coin_list` used in that search.
+
+Note: Trending responses are cached briefly on the provider to reduce rate-limits while keeping near real-time behavior.
 
 ## 🔮 Future Development
 

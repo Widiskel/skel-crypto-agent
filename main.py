@@ -1,9 +1,9 @@
 from sentient_agent_framework import DefaultServer
 from sentient_narrative_agent.providers.agent_provider import AgentProvider
 from sentient_narrative_agent.providers.coingecko_provider import CoinGeckoProvider
-from src.sentient_narrative_agent.config.settings import config
-from src.sentient_narrative_agent.utils.logger import setup_logger
-from src.sentient_narrative_agent.agent import NarrativeAgent
+from sentient_narrative_agent.config.settings import config
+from sentient_narrative_agent.utils.logger import setup_logger
+from sentient_narrative_agent.agent import NarrativeAgent
 
 if __name__ == "__main__":
     logger = setup_logger()
