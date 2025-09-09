@@ -180,8 +180,6 @@ class NarrativeAgent(AbstractAgent):
                             if news_items:
                                 news_table = format_news_as_table(news_items)
                                 has_news = True
-                            # Skip extra bull/bear API calls to keep it to a single news request
-                            # bull_bear_counts remains None (sentiment will derive from price momentum only)
                             await events.metrics(provider="cryptopanic", status=(status or "ok"))
                         except Exception as _:
                             await events.metrics(provider="cryptopanic", status="degraded")
@@ -222,7 +220,6 @@ class NarrativeAgent(AbstractAgent):
             await events.start("Synthesizing final response...")
             final_stream = events.final_stream()
             full_assistant_response = []
-            # Prepend deterministic sentiment header when news is available
             if has_news:
                 header = f"Overall Sentiment: {overall['label']} (score: {overall['score']}/100)\n\n"
                 await final_stream.emit_chunk(sanitize_text(header))
