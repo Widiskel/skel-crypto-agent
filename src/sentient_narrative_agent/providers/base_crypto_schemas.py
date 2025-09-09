@@ -2,33 +2,32 @@ from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 
 class Coin(BaseModel):
-    """Represents the basic information for a single cryptocurrency."""
     id: str
     symbol: str
     name: str
     market_cap_rank: Optional[int] = None
 
 class TrendingCoinData(BaseModel):
-    """Represents the detailed data nested within a trending coin item."""
     price: float
     price_change_percentage_24h: Dict[str, float]
-    market_cap: str # Stays as string like "$99,703,583"
-    total_volume: str # Stays as string like "$282,142"
+    market_cap: str
+    total_volume: str
     
 class TrendingItem(Coin):
-    """Represents the 'item' object in a trending coin response."""
     data: Optional[TrendingCoinData] = None
 
 class TrendingCoin(BaseModel):
-    """Represents a full coin object as returned by the trending endpoint."""
     item: TrendingItem
 
-class CoinMarketData(Coin):
-    """Represents detailed market data for a single cryptocurrency."""
-    current_price: Optional[float] = Field(None, alias='current_price')
-    market_cap: Optional[int] = Field(None, alias='market_cap')
-    total_volume: Optional[int] = Field(None, alias='total_volume')
-    price_change_percentage_24h: Optional[float] = Field(None, alias='price_change_percentage_24h')
-    
-    class Config:
-        populate_by_name = True
+class MarketData(BaseModel):
+    current_price: Dict[str, float] = Field(default_factory=dict)
+    market_cap: Dict[str, float] = Field(default_factory=dict)
+    total_volume: Dict[str, float] = Field(default_factory=dict)
+    price_change_percentage_24h: Optional[float] = None
+    price_change_percentage_7d: Optional[float] = None
+    price_change_percentage_30d: Optional[float] = None
+    market_cap_rank: Optional[int] = None
+
+class CoinDetails(Coin):
+    description: Dict[str, str] = Field(default_factory=dict)
+    market_data: MarketData = Field(default_factory=MarketData)

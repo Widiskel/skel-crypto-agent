@@ -1,5 +1,3 @@
-# File: src/sentient_narrative_agent/utils/event.py
-
 from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
@@ -33,7 +31,7 @@ async def emit_error(handler: ResponseHandler, message: str, *, code: int = 1, d
     await handler.emit_error(message, error_code=code, details=dict(details or {}))
 
 def create_stream(handler: ResponseHandler, name: EventName | str) -> _TextStream:
-    return handler.create_text_stream(str(name))  # type: ignore[return-value]
+    return handler.create_text_stream(str(name)) 
 
 async def stream_chunks(stream: _TextStream, chunks: Iterable[str]) -> None:
     for c in chunks:
