@@ -80,17 +80,19 @@ async def get_intent_and_entity(prompt: str, history: List[Dict[str, str]], mode
         return {"intent": "general_chat", "entity": None}
 
 def format_trending_data_as_table(trending_data: List[TrendingCoin]) -> str:
-    col_num, col_name, col_symbol, col_rank, col_price, col_24h = 3, 20, 8, 8, 15, 10
-    header = f"{'#':<{col_num}} {'Name':<{col_name}} {'Symbol':<{col_symbol}} {'Rank':<{col_rank}} {'Price (USD)':>{col_price}} {'24h %':>{col_24h}}"
-    separator = f"{'-'*col_num} {'-'*col_name} {'-'*col_symbol} {'-'*col_rank} {'-'*col_price} {'-'*col_24h}"
-    response_lines = [header, separator]
+    headers = ["#", "Name", "Symbol", "Rank", "Price (USD)", "24h %"]
+    sep = " | ".join(["---"] * len(headers))
+    lines: List[str] = [" | ".join(headers), sep]
     for i, coin in enumerate(trending_data):
         item = coin.item
         if item.data:
-            num = str(i + 1); name = (item.name[:col_name-3] + '...') if len(item.name) > col_name else item.name
-            symbol = f"(${item.symbol.upper()})"; rank = f"#{item.market_cap_rank}" if item.market_cap_rank else "N/A"
-            price = f"${item.data.price:,.4f}"; change_24h = item.data.price_change_percentage_24h.get('usd', 0.0)
+            num = str(i + 1)
+            name = item.name
+            symbol = item.symbol.upper()
+            rank = f"#{item.market_cap_rank}" if item.market_cap_rank else "N/A"
+            price = f"${item.data.price:,.4f}"
+            change_24h = item.data.price_change_percentage_24h.get("usd", 0.0)
             change_str = f"{change_24h:+.2f}%"
-            row = f"{num:<{col_num}} {name:<{col_name}} {symbol:<{col_symbol}} {rank:<{col_rank}} {price:>{col_price}} {change_str:>{col_24h}}"
-            response_lines.append(row)
-    return "```\n" + "\n".join(response_lines) + "\n```"
+            row = [num, name, symbol, rank, price, change_str]
+            lines.append(" | ".join(row))
+    return "\n".join(lines)
