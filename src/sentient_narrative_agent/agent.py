@@ -50,6 +50,8 @@ class NarrativeAgent(AbstractAgent):
         
         try:
             if not prompt:
+                await events.start("Prepairing Greetings Message...")
+                await events.start("Greet the user...")
                 await events.final_block(self.welcome_message)
                 return
 
@@ -99,12 +101,12 @@ class NarrativeAgent(AbstractAgent):
                 await events.sources(provider="coingecko", type=SourceType.TRENDING, data=self.crypto_provider.get_last_trending_raw())
                 
                 table_string = format_trending_data_as_table(trending_data)
-                
+                trending_block = f"<!-- TABLE:trending -->\n{table_string}\n<!-- /TABLE -->"
                 tool_context = (
                     "You have just received real-time trending crypto data. "
-                    "Present this to the user IN THE SAME LANGUAGE as the user's latest message. Start with a brief narrative summary, regarding to the data"
-                    "then present the markdown table from Pre-formatted Data Table exactly as provided in the new line after the narrative."
-                    f"\n\nPre-formatted Data Table:\n{table_string}"
+                    "Present this to the user IN THE SAME LANGUAGE as the user's latest message. Start with a brief narrative summary, "
+                    "then present the markdown table exactly as provided (including the table markers)."
+                    f"\n\nPre-formatted Data Table:\n{trending_block}"
                 )
             
             elif intent == "analyze_coin" and entity:
@@ -154,6 +156,7 @@ class NarrativeAgent(AbstractAgent):
                     await events.sources(provider="coingecko", type=SourceType.COIN_DETAILS, data=details_raw)
                     
                     analysis_table = format_technical_analysis_as_table(all_details)
+                    technical_block = f"<!-- TABLE:technical -->\n{analysis_table}\n<!-- /TABLE -->"
                     descriptions = "\n".join([f"- {d.name}: {d.description.get('en', 'No description available.')[:200]}..." for d in all_details])
 
                     news_table = ""
@@ -187,18 +190,19 @@ class NarrativeAgent(AbstractAgent):
                     overall = compute_overall_sentiment(all_details, bull_bear_counts)
 
                     if has_news:
+                        news_block = f"<!-- TABLE:news_headlines -->\n{news_table}\n<!-- /TABLE -->" if news_table else ""
                         tool_context = (
                             f"You have received technical and descriptive data for coin(s) matching '{entity}'. "
                             "Your task is to provide a concise, objective analysis IN THE SAME LANGUAGE as the user's latest message.\n"
                             "Do NOT repeat the 'Overall Sentiment' line; it will be printed before your response.\n"
                             "Base your narrative on the provided technical table and the headlines.\n"
                             "Provide a narrative summary of the key signals (no strict sentence count).\n"
-                            "Present the pre-formatted technical table exactly as provided below (no added heading text).\n"
-                            "Then summarize the news sentiment/themes briefly and present the 'News Headlines' table.\n"
+                            "Present the pre-formatted technical table exactly as provided below (including the table markers; no added heading text).\n"
+                            "Then summarize the news sentiment/themes briefly and present the 'News Headlines' table exactly as provided (including markers).\n"
                             "Do not use profanity. Do not provide financial advice. Keep it concise.\n\n"
-                            f"{analysis_table}\n\n"
+                            f"{technical_block}\n\n"
                             f"Descriptions:\n{descriptions}"
-                            + (f"\n\nNews Headlines:\n{news_table}" if news_table else "")
+                            + (f"\n\nNews Headlines:\n{news_block}" if news_block else "")
                         )
                     else:
                         tool_context = (
@@ -206,30 +210,37 @@ class NarrativeAgent(AbstractAgent):
                             "Your task is to provide a concise, objective analysis IN THE SAME LANGUAGE as the user's latest message.\n"
                             "Base your narrative on the provided table.\n"
                             "Provide a brief narrative summary of the key signals (no need to count sentences).\n"
-                            "Present the pre-formatted technical table exactly as provided below (no added heading text).\n"
+                            "Present the pre-formatted technical table exactly as provided below (including the table markers; no added heading text).\n"
                             "Do not use profanity. Do not provide financial advice. Keep it concise.\n\n"
-                            f"{analysis_table}\n\n"
+                            f"{technical_block}\n\n"
                             f"Descriptions:\n{descriptions}"
                         )
 
+            if not tool_context and intent not in ("get_trending", "analyze_coin"):
+                tool_context = (
+                    "Respond in the same language as the user's latest message.\n"
+                    "Respond ONLY with valid HTML. Use <p> for narrative paragraphs.\n"
+                    "If you need lists, use <ul>/<ol>. If you include code, use <pre><code>.\n\n"
+                    f"User message:\n{prompt}"
+                )
             if tool_context:
                 messages_for_llm.append({"role": "user", "content": tool_context})
-            else: 
+            else:
                 messages_for_llm.append({"role": "user", "content": prompt})
             
             await events.start("Synthesizing final response...")
             final_stream = events.final_stream()
             full_assistant_response = []
             if has_news:
-                header = f"Overall Sentiment: {overall['label']} (score: {overall['score']}/100)\n\n"
+                header = f"<p>Overall Sentiment: {overall['label']} (score: {overall['score']}/100)</p>\n"
                 await final_stream.emit_chunk(sanitize_text(header))
             async for chunk in self.model_provider.query_stream(messages_for_llm):
                 clean = sanitize_text(chunk)
                 full_assistant_response.append(clean)
                 await final_stream.emit_chunk(clean)
             final_response_text = "".join(full_assistant_response)
-            if has_news and news_table and ("Title | Source | Published" not in final_response_text):
-                await final_stream.emit_chunk(sanitize_text("\nNews Headlines:\n" + news_table + "\n"))
+            if has_news and 'news_html' in locals() and news_html and ("data-sna=\"news\"" not in final_response_text):
+                await final_stream.emit_chunk(sanitize_text("<p>News Headlines:</p>\n" + news_html + "\n"))
             await final_stream.complete()
 
             self.chat_histories[activity_id].append({"role": "user", "content": prompt})
