@@ -70,8 +70,11 @@ async def get_intent_and_entity(prompt: str, history: List[Dict[str, str]], mode
 
 def format_trending_data_as_table(trending_data: List[TrendingCoin]) -> str:
     headers = ["#", "Name", "Symbol", "Rank", "Price (USD)", "24h %"]
-    sep = " | ".join(["---"] * len(headers))
-    lines: List[str] = [" | ".join(headers), sep]
+    sep = "| " + " | ".join(["---"] * len(headers)) + " |"
+    lines: List[str] = [
+        "| " + " | ".join(headers) + " |",
+        sep
+    ]
     for i, coin in enumerate(trending_data):
         item = coin.item
         if item.data:
