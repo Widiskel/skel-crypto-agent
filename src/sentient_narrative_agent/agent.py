@@ -225,44 +225,46 @@ class NarrativeAgent(AbstractAgent):
                 full_assistant_response.append(clean)
                 await final_stream.emit_chunk(clean)
             final_response_text = "".join(full_assistant_response)
-            def _build_tech_narr():
-                try:
-                    d = all_details[0]
-                    md = d.market_data
-                    name = d.name
-                    rank_val = getattr(d, 'market_cap_rank', None) or getattr(md, 'market_cap_rank', None)
-                    rank = f"#{rank_val}" if rank_val else "N/A"
-                    price = f"${md.current_price.get('usd', 0.0):,.4f}"
-                    c24 = md.price_change_percentage_24h or 0.0
-                    c7 = md.price_change_percentage_7d or 0.0
-                    c30 = md.price_change_percentage_30d or 0.0
-                    return (
-                        f"{name} currently ranks {rank} at {price}. "
-                        f"Change: 24h {c24:+.2f}%, 7d {c7:+.2f}%, 30d {c30:+.2f}%."
+
+            if 'analysis_table' in locals():
+                def _build_tech_narr():
+                    try:
+                        d = all_details[0]
+                        md = d.market_data
+                        name = d.name
+                        rank_val = getattr(d, 'market_cap_rank', None) or getattr(md, 'market_cap_rank', None)
+                        rank = f"#{rank_val}" if rank_val else "N/A"
+                        price = f"${md.current_price.get('usd', 0.0):,.4f}"
+                        c24 = md.price_change_percentage_24h or 0.0
+                        c7 = md.price_change_percentage_7d or 0.0
+                        c30 = md.price_change_percentage_30d or 0.0
+                        return (
+                            f"{name} currently ranks {rank} at {price}. "
+                            f"Change: 24h {c24:+.2f}%, 7d {c7:+.2f}%, 30d {c30:+.2f}%."
+                        )
+                    except Exception:
+                        return ""
+                has_paragraph = any(line.strip() and '|' not in line for line in final_response_text.splitlines())
+                if not has_paragraph:
+                    tech_narr = _build_tech_narr()
+                    if tech_narr:
+                        await final_stream.emit_chunk(sanitize_text("\n" + tech_narr + "\n\n"))
+                await final_stream.emit_chunk(sanitize_text("\n" + analysis_table + "\n\n"))
+                if has_news and news_table:
+                    await final_stream.emit_chunk(sanitize_text("News Headlines:\n" + news_table + "\n\n"))
+                    news_context = (
+                        "Write a brief narrative analyzing the news headlines above. "
+                        "Connect these headlines to the current market context and to the overall sentiment provided earlier. "
+                        "Highlight key drivers, risks, and likely near-term implications. "
+                        "Respond in the same language as the user's latest message. "
+                        "Do not include any tables or lists; use 2–5 concise sentences.\n\n"
+                        f"Overall Sentiment: {overall['label']} (score: {overall['score']}/100)\n\n"
+                        f"News Headlines Table:\n{news_table}"
                     )
-                except Exception:
-                    return ""
-            has_paragraph = any(line.strip() and '|' not in line for line in final_response_text.splitlines())
-            if not has_paragraph:
-                tech_narr = _build_tech_narr()
-                if tech_narr:
-                    await final_stream.emit_chunk(sanitize_text("\n" + tech_narr + "\n\n"))
-            await final_stream.emit_chunk(sanitize_text("\n" + analysis_table + "\n\n"))
-            if has_news and news_table:
-                await final_stream.emit_chunk(sanitize_text("News Headlines:\n" + news_table + "\n\n"))
-                news_context = (
-                    "Write a brief narrative analyzing the news headlines above. "
-                    "Connect these headlines to the current market context and to the overall sentiment provided earlier. "
-                    "Highlight key drivers, risks, and likely near-term implications. "
-                    "Respond in the same language as the user's latest message. "
-                    "Do not include any tables or lists; use 2–5 concise sentences.\n\n"
-                    f"Overall Sentiment: {overall['label']} (score: {overall['score']}/100)\n\n"
-                    f"News Headlines Table:\n{news_table}"
-                )
-                news_messages = self.chat_histories[activity_id].copy()
-                news_messages.append({"role": "user", "content": news_context})
-                async for chunk in self.model_provider.query_stream(news_messages):
-                    await final_stream.emit_chunk(sanitize_text(chunk))
+                    news_messages = self.chat_histories[activity_id].copy()
+                    news_messages.append({"role": "user", "content": news_context})
+                    async for chunk in self.model_provider.query_stream(news_messages):
+                        await final_stream.emit_chunk(sanitize_text(chunk))
             await final_stream.complete()
 
             self.chat_histories[activity_id].append({"role": "user", "content": prompt})
