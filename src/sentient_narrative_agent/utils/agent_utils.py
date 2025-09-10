@@ -3,6 +3,7 @@ import re
 from loguru import logger
 from typing import List, Dict, Optional
 import math
+from tabulate import tabulate
 
 from sentient_narrative_agent.providers.agent_provider import AgentProvider
 from sentient_narrative_agent.providers.base_crypto_schemas import CoinDetails, TrendingCoin
@@ -10,11 +11,8 @@ from sentient_narrative_agent.providers.base_news_schemas import NewsItem
 
 
 def format_technical_analysis_as_table(details: List[CoinDetails]) -> str:
-    """Formats technical analysis data into a Markdown table (pipes)."""
     headers = ["Name", "Rank", "Price (USD)", "24h %", "7d %", "30d %"]
-    sep = " | ".join(["---"] * len(headers))
-    lines: List[str] = [" | ".join(headers), sep]
-
+    rows: List[List[str]] = []
     for coin in details:
         md = coin.market_data
         name = coin.name
@@ -26,9 +24,8 @@ def format_technical_analysis_as_table(details: List[CoinDetails]) -> str:
         change_24h = f"{(md.price_change_percentage_24h or 0.0):+.2f}%"
         change_7d = f"{(md.price_change_percentage_7d or 0.0):+.2f}%"
         change_30d = f"{(md.price_change_percentage_30d or 0.0):+.2f}%"
-        row = [name, rank, price, change_24h, change_7d, change_30d]
-        lines.append(" | ".join(row))
-    return "\n".join(lines)
+        rows.append([name, rank, price, change_24h, change_7d, change_30d])
+    return tabulate(rows, headers=headers, tablefmt="github")
 
 async def get_intent_and_entity(prompt: str, history: List[Dict[str, str]], model_provider: AgentProvider) -> Dict[str, str]:
     """Uses the LLM to classify intent and extract the coin entity."""
@@ -70,14 +67,10 @@ async def get_intent_and_entity(prompt: str, history: List[Dict[str, str]], mode
 
 def format_trending_data_as_table(trending_data: List[TrendingCoin]) -> str:
     headers = ["#", "Name", "Symbol", "Rank", "Price (USD)", "24h %"]
-    sep = "| " + " | ".join(["---"] * len(headers)) + " |"
-    lines: List[str] = [
-        "| " + " | ".join(headers) + " |",
-        sep
-    ]
+    rows: List[List[str]] = []
     for i, coin in enumerate(trending_data):
         item = coin.item
-        if item.data:
+        if item and item.data:
             num = str(i + 1)
             name = item.name
             symbol = item.symbol.upper()
@@ -85,20 +78,18 @@ def format_trending_data_as_table(trending_data: List[TrendingCoin]) -> str:
             price = f"${item.data.price:,.4f}"
             change_24h = item.data.price_change_percentage_24h.get("usd", 0.0)
             change_str = f"{change_24h:+.2f}%"
-            row = [num, name, symbol, rank, price, change_str]
-            lines.append(" | ".join(row))
-    return "\n".join(lines)
+            rows.append([num, name, symbol, rank, price, change_str])
+    return tabulate(rows, headers=headers, tablefmt="github")
 
 def format_news_as_table(items: List[NewsItem]) -> str:
     headers = ["Title", "Source", "Published"]
-    sep = " | ".join(["---"] * len(headers))
-    lines: List[str] = [" | ".join(headers), sep]
+    rows: List[List[str]] = []
     for it in items:
-        title = f"{it.title}" if it.url else it.title
-        source = it.source or f"{it.url}"
+        title = it.title
+        source = it.source or (it.url or "-")
         published = it.published_at or "-"
-        lines.append(" | ".join([title, source, published]))
-    return "\n".join(lines)
+        rows.append([title, source, published])
+    return tabulate(rows, headers=headers, tablefmt="github")
 
 def format_news_sources_table(items: List[NewsItem]) -> str:
     headers = ["Title", "URL"]
