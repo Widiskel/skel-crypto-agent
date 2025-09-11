@@ -1,5 +1,5 @@
 from openai import AsyncOpenAI
-from typing import AsyncIterator, List, Dict
+from typing import AsyncIterator, List, Dict, Optional
 from loguru import logger
 
 class AgentProvider:
@@ -12,10 +12,12 @@ class AgentProvider:
             "market data, trending crypto data, and sentiment to uncover the underlying narratives driving crypto price movements. "
             "Provide concise, data-driven summaries of these narratives. "
             "Do not provide financial advice. Your tone is objective and analytical. "
-            "Always respond in the user's language, inferred from the latest user message. If unclear, default to English."
+            "Always respond in the user's language, inferred from the latest user message. If unclear, default to English. "
+            "When technical metrics or JSON are provided by tools, treat them as the sole source of numeric truth. Do NOT invent, infer, or assume missing numbers. "
+            "If a timeframe like 7d or 30d is not provided, explicitly state it is not available rather than implying a change."
         )
 
-    async def query_stream(self, messages: List[Dict[str, str]]) -> AsyncIterator[str]:
+    async def query_stream(self, messages: List[Dict[str, str]], *, temperature: Optional[float] = None) -> AsyncIterator[str]:
         """
         Sends a structured list of messages to the model and yields the response in chunks.
         """
@@ -23,14 +25,15 @@ class AgentProvider:
         
         logger.debug(f"Sending payload with {len(full_messages)} messages to LLM:")
         
+        temp = 0.5 if temperature is None else float(temperature)
         stream = await self._client.chat.completions.create(
-            model=self._model, messages=full_messages, stream=True, temperature=0.5
+            model=self._model, messages=full_messages, stream=True, temperature=temp
         )
         async for chunk in stream:
             if chunk.choices[0].delta.content is not None:
                 yield chunk.choices[0].delta.content
                 
-    async def query(self, messages: List[Dict[str, str]]) -> str:
+    async def query(self, messages: List[Dict[str, str]], *, temperature: Optional[float] = None) -> str:
         """Sends a structured list of messages and returns the full response."""
-        chunks = [chunk async for chunk in self.query_stream(messages)]
+        chunks = [chunk async for chunk in self.query_stream(messages, temperature=temperature)]
         return "".join(chunks)

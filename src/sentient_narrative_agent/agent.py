@@ -220,7 +220,7 @@ class NarrativeAgent(AbstractAgent):
             if has_news:
                 header = f"Overall Sentiment: {overall['label']} (score: {overall['score']}/100)\n\n"
                 await final_stream.emit_chunk(sanitize_text(header))
-            async for chunk in self.model_provider.query_stream(messages_for_llm):
+            async for chunk in self.model_provider.query_stream(messages_for_llm, temperature=0.0):
                 clean = sanitize_text(chunk)
                 full_assistant_response.append(clean)
                 await final_stream.emit_chunk(clean)
@@ -263,7 +263,7 @@ class NarrativeAgent(AbstractAgent):
                     )
                     news_messages = self.chat_histories[activity_id].copy()
                     news_messages.append({"role": "user", "content": news_context})
-                    async for chunk in self.model_provider.query_stream(news_messages):
+                    async for chunk in self.model_provider.query_stream(news_messages, temperature=0.5):
                         await final_stream.emit_chunk(sanitize_text(chunk))
             await final_stream.complete()
 

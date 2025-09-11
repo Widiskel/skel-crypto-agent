@@ -42,7 +42,7 @@ async def get_intent_and_entity(prompt: str, history: List[Dict[str, str]], mode
     )
     
     classification_messages = [{"role": "user", "content": classification_prompt}]
-    response_text = await model_provider.query(classification_messages)
+    response_text = await model_provider.query(classification_messages, temperature=0.0)
     
     try:
         cleaned_json = response_text.strip().replace("```json", "").replace("```", "").strip()
