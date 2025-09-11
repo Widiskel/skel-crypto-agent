@@ -1,4 +1,5 @@
 import asyncio
+import json
 from loguru import logger
 from sentient_agent_framework import AbstractAgent, ResponseHandler, Session, Query
 from typing import List, Dict
@@ -101,10 +102,57 @@ class NarrativeAgent(AbstractAgent):
                 await events.sources(provider="coingecko", type=SourceType.TRENDING, data=self.crypto_provider.get_last_trending_raw())
                 
                 table_string = format_trending_data_as_table(trending_data)
+
+                trending_json_list = []
+                try:
+                    for i, tc in enumerate(trending_data, start=1):
+                        item = getattr(tc, 'item', None)
+                        data = getattr(item, 'data', None) if item else None
+                        pct_24h = None
+                        if data and getattr(data, 'price_change_percentage_24h', None):
+                            pct_24h = data.price_change_percentage_24h.get('usd', None)
+                        trending_json_list.append({
+                            'index': i,
+                            'id': getattr(item, 'id', None) if item else None,
+                            'name': getattr(item, 'name', None) if item else None,
+                            'symbol': (getattr(item, 'symbol', None) or '').upper() if item else None,
+                            'rank': getattr(item, 'market_cap_rank', None) if item else None,
+                            'price_usd': getattr(data, 'price', None) if data else None,
+                            'pct_24h': pct_24h,
+                        })
+                except Exception:
+                    pass
+                try:
+                    valid = [t for t in trending_json_list if isinstance(t.get('pct_24h'), (int, float))]
+                    top_gainers = sorted(valid, key=lambda t: t['pct_24h'], reverse=True)[:3]
+                    top_losers = sorted(valid, key=lambda t: t['pct_24h'])[:3]
+                    most_volatile = sorted(valid, key=lambda t: abs(t['pct_24h']), reverse=True)[:3]
+                    gainers_count = sum(1 for t in valid if t['pct_24h'] > 0)
+                    losers_count = sum(1 for t in valid if t['pct_24h'] < 0)
+                    unchanged_count = sum(1 for t in valid if t['pct_24h'] == 0)
+                    skew = 'positive' if gainers_count > losers_count else ('negative' if losers_count > gainers_count else 'mixed')
+                    trending_payload_json = json.dumps({
+                        'trending': trending_json_list,
+                        'top_gainers': top_gainers,
+                        'top_losers': top_losers,
+                        'most_volatile': most_volatile,
+                        'breadth': {
+                            'gainers': gainers_count,
+                            'losers': losers_count,
+                            'unchanged': unchanged_count,
+                            'skew': skew,
+                        },
+                        'user_question': prompt,
+                        'timeframe': '24h'
+                    }, ensure_ascii=False)
+                except Exception:
+                    trending_payload_json = json.dumps({'trending': trending_json_list, 'user_question': prompt, 'timeframe': '24h'})
+
                 tool_context = (
-                    "You have just received real-time trending crypto data. "
-                    "Respond in the same language as the user's latest message. Start with a brief narrative summary, "
-                    "then paste the following Markdown table exactly as-is. Leave a blank line before and after the table.\n\n"
+                    "You have just received real-time trending crypto data (24h snapshot). "
+                    "Respond in the same language as the user's latest message. Start with a brief narrative summary grounded in the table, "
+                    "then paste the following Markdown table exactly as-is. Do NOT invent metrics not present in the table. "
+                    "Leave a blank line before and after the table.\n\n"
                     f"\n{table_string}\n\n"
                 )
             
@@ -160,6 +208,7 @@ class NarrativeAgent(AbstractAgent):
                     news_table = ""
                     has_news = False
                     bull_bear_counts = None
+                    news_json_list = []
                     if self.news_provider and sym:
                         try:
                             news_sym = None
@@ -181,26 +230,64 @@ class NarrativeAgent(AbstractAgent):
                             if news_items:
                                 news_table = format_news_as_table(news_items)
                                 has_news = True
+                                try:
+                                    for it in news_items:
+                                        news_json_list.append({
+                                            'title': getattr(it, 'title', None),
+                                            'source': getattr(it, 'source', None),
+                                            'url': getattr(it, 'url', None),
+                                            'published_at': getattr(it, 'published_at', None),
+                                        })
+                                except Exception:
+                                    pass
+                            try:
+                                if hasattr(self.news_provider, 'get_bull_bear_counts'):
+                                    bull_bear_counts = await self.news_provider.get_bull_bear_counts(news_sym)
+                                    await events.metrics(provider="cryptopanic", **{"bull_bear_counts": bull_bear_counts})
+                            except Exception:
+                                bull_bear_counts = None
                             await events.metrics(provider="cryptopanic", status=(status or "ok"))
                         except Exception as _:
                             await events.metrics(provider="cryptopanic", status="degraded")
 
                     overall = compute_overall_sentiment(all_details, bull_bear_counts)
 
+                    try:
+                        llm_coins = []
+                        for d in all_details:
+                            md = getattr(d, 'market_data', None)
+                            rank_val = getattr(d, 'market_cap_rank', None) or (getattr(md, 'market_cap_rank', None) if md else None)
+                            price_usd = md.current_price.get('usd', None) if md and getattr(md, 'current_price', None) else None
+                            llm_coins.append({
+                                'name': getattr(d, 'name', None),
+                                'symbol': getattr(d, 'symbol', None),
+                                'rank': rank_val,
+                                'price_usd': price_usd,
+                                'pct_24h': getattr(md, 'price_change_percentage_24h', None) if md else None,
+                                'pct_7d': getattr(md, 'price_change_percentage_7d', None) if md else None,
+                                'pct_30d': getattr(md, 'price_change_percentage_30d', None) if md else None,
+                            })
+                        llm_data_json = json.dumps({'coins': llm_coins}, ensure_ascii=False)
+                    except Exception:
+                        llm_data_json = json.dumps({'coins': []})
+
+                    guidance_common = (
+                        f"You have received technical and descriptive data for coin(s) matching '{entity}'. "
+                        "Your task is to provide a concise, objective analysis IN THE SAME LANGUAGE as the user's latest message.\n"
+                        "Ground your statements ONLY on the exact metrics provided below; do not invent or assume values.\n"
+                        "If 7d or 30d percentage is null (not provided), explicitly state that data for that timeframe is not available and DO NOT claim an increase/decrease for it.\n"
+                        "Use normal paragraphs (no tables).\n\n"
+                        f"COIN_DATA_JSON:\n{llm_data_json}\n"
+                    )
+
                     if has_news:
                         tool_context = (
-                            f"You have received technical and descriptive data for coin(s) matching '{entity}'. "
-                            "Your task is to provide a concise, objective analysis IN THE SAME LANGUAGE as the user's latest message.\n"
+                            guidance_common +
                             "Do NOT repeat the 'Overall Sentiment' line; it will be printed before your response.\n"
-                            "Write only narrative paragraphs (no tables). The client will append the technical and news tables.\n"
-                            "Focus this narrative on technical analysis only: reference rank, price, and 24h/7d/30d performance. Do not summarize news here.\n"
+                            "Focus this narrative on technical analysis only: reference rank, price, and 24h/7d/30d performance if available. Do not summarize news here.\n"
                         )
                     else:
-                        tool_context = (
-                            f"You have received technical and descriptive data for coin(s) matching '{entity}'. "
-                            "Your task is to provide a concise, objective analysis IN THE SAME LANGUAGE as the user's latest message.\n"
-                            "Write only narrative paragraphs (no tables). The client will append the technical table.\n"
-                        )
+                        tool_context = guidance_common
 
             if not tool_context and intent not in ("get_trending", "analyze_coin"):
                 tool_context = (
@@ -235,12 +322,14 @@ class NarrativeAgent(AbstractAgent):
                         rank_val = getattr(d, 'market_cap_rank', None) or getattr(md, 'market_cap_rank', None)
                         rank = f"#{rank_val}" if rank_val else "N/A"
                         price = f"${md.current_price.get('usd', 0.0):,.4f}"
-                        c24 = md.price_change_percentage_24h or 0.0
-                        c7 = md.price_change_percentage_7d or 0.0
-                        c30 = md.price_change_percentage_30d or 0.0
+                        c24 = md.price_change_percentage_24h
+                        c7 = md.price_change_percentage_7d
+                        c30 = md.price_change_percentage_30d
+                        def _fmt(val):
+                            return "N/A" if val is None else f"{val:+.2f}%"
                         return (
                             f"{name} currently ranks {rank} at {price}. "
-                            f"Change: 24h {c24:+.2f}%, 7d {c7:+.2f}%, 30d {c30:+.2f}%."
+                            f"Change: 24h {_fmt(c24)}, 7d {_fmt(c7)}, 30d {_fmt(c30)}."
                         )
                     except Exception:
                         return ""
@@ -265,6 +354,46 @@ class NarrativeAgent(AbstractAgent):
                     news_messages.append({"role": "user", "content": news_context})
                     async for chunk in self.model_provider.query_stream(news_messages, temperature=0.5):
                         await final_stream.emit_chunk(sanitize_text(chunk))
+
+                try:
+                    conclusion_payload = json.dumps({
+                        'coins': json.loads(llm_data_json).get('coins', []),
+                        'news': news_json_list,
+                        'overall': overall,
+                        'user_question': prompt,
+                    }, ensure_ascii=False)
+                except Exception:
+                    conclusion_payload = json.dumps({'coins': [], 'news': [], 'overall': overall, 'user_question': prompt})
+
+                conclusion_instructions = (
+                    "Using only the JSON below, write a concise conclusion that directly answers the user's question. "
+                    "Tie together price action (24h/7d/30d if available) and the news context. "
+                    "Do NOT invent numbers or claims; if some timeframe is missing, state that it's not available. "
+                    "Respond in the user's language inferred from the user's message. Start with a single-line header meaning 'Conclusion:' in that language (e.g., 'Kesimpulan:' in Indonesian, 'Conclusion:' in English), then write 2–4 sentences. "
+                    "Avoid tables or lists in your response.\n\n"
+                    f"DATA_JSON:\n{conclusion_payload}\n"
+                )
+                conclusion_messages = self.chat_histories[activity_id].copy()
+                conclusion_messages.append({"role": "user", "content": conclusion_instructions})
+                await final_stream.emit_chunk("\n\n")
+                async for chunk in self.model_provider.query_stream(conclusion_messages, temperature=0.0):
+                    await final_stream.emit_chunk(sanitize_text(chunk))
+
+            if 'trending_payload_json' in locals():
+                trending_conclusion_instructions = (
+                    "Using only the JSON below, write a concise conclusion that directly answers the user's question about today's trending cryptocurrencies. "
+                    "Summarize the key movers (24h), use the 'breadth' field to describe whether gainers or losers dominate, and add a brief volatility caution. "
+                    "If the user's question mentions a specific coin present in the list, address it explicitly using its 24h % from the JSON. "
+                    "Do NOT speculate about why an asset is 'top 1' unless the JSON provides a reason; if not provided, state that the list is a 24h trending snapshot and the specific reason is not included. "
+                    "Respond in the user's language inferred from the user's message. Start with a single-line header meaning 'Conclusion:' in that language (e.g., 'Kesimpulan:' in Indonesian, 'Conclusion:' in English), then write 2–4 sentences. "
+                    "Avoid tables or lists in your response. Do not provide financial advice.\n\n"
+                    f"DATA_JSON:\n{trending_payload_json}\n"
+                )
+                trending_conclusion_messages = self.chat_histories[activity_id].copy()
+                trending_conclusion_messages.append({"role": "user", "content": trending_conclusion_instructions})
+                await final_stream.emit_chunk("\n\n")
+                async for chunk in self.model_provider.query_stream(trending_conclusion_messages, temperature=0.0):
+                    await final_stream.emit_chunk(sanitize_text(chunk))
             await final_stream.complete()
 
             self.chat_histories[activity_id].append({"role": "user", "content": prompt})
