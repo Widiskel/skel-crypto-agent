@@ -88,35 +88,47 @@ When asked “analyze $BTC”, “bagaimana soal Aethir”, or “analisa nomor 
 
 ## Example Interaction Flow
 
-Enter your message: hello
-EventName.FINAL_RESPONSE
-Hello! I’m here to break down the crypto narratives driving price moves. Ask about trends or any coin, and I’ll keep it concise.
+User Message: Give me today trending cryptocurrency!
+Agent Response Message : The crypto market is showing some wild swings in the last 24 hours, with MYX Finance taking a f***ing nosedive of -39.87%—that s***’s brutal. On the flip side, Somnia and Aerodrome Finance are flexing with gains of +8.57% and +7.95%, respectively. Bitcoin and Ethereum are just chillin’, doing their thing with small gains. 
 
-Enter your message: give me information about trending cryptocurrency today
-EventName.FINAL_RESPONSE
-Today’s market shows strong movers and some pullbacks. Quick snapshot:
+|   # | Name              | Symbol   | Rank   | Price (USD)   | 24h %   |
+|-----|-------------------|----------|--------|---------------|---------|
+|   1 | Linea             | LINEA    | #237   | $0.0235       | -2.45%  |
+|   2 | Pump.fun          | PUMP     | #69    | $0.0062       | +5.10%  |
+|   3 | Ondo              | ONDO     | #47    | $1.1096       | +9.27%  |
+|   4 | MYX Finance       | MYX      | #73    | $11.3499      | -39.87% |
+|   5 | Hyperliquid       | HYPE     | #15    | $56.5628      | +1.48%  |
+|   6 | Solana            | SOL      | #5     | $233.9803     | +4.35%  |
+|   7 | Ethena            | ENA      | #39    | $0.7704       | -2.41%  |
+|   8 | Pudgy Penguins    | PENGU    | #64    | $0.0365       | +6.40%  |
+|   9 | Ethereum          | ETH      | #2     | $4,492.7526   | +2.32%  |
+|  10 | Dogecoin          | DOGE     | #8     | $0.2602       | +2.89%  |
+|  11 | Bitcoin           | BTC      | #1     | $115,117.7873 | +0.78%  |
+|  12 | Aerodrome Finance | AERO     | #116   | $1.2539       | +7.95%  |
+|  13 | Somnia            | SOMI     | #384   | $1.0288       | +8.57%  |
+|  14 | Holoworld         | HOLO     | #392   | $0.4561       | +3.77%  |
+|  15 | Sui               | SUI      | #18    | $3.6506       | +0.95%  |
 
-# | Name | Symbol | Rank | Price (USD) | 24h %
---- | --- | --- | --- | --- | ---
-1 | Avantis | AVNT | #812 | $0.2663 | -29.11%
-2 | MYX Finance | MYX | #73 | $16.7062 | +134.21%
-3 | Worldcoin | WLD | #47 | $1.8844 | +28.91%
-4 | OpenLedger | OPEN | #298 | $1.1322 | -26.33%
-5 | Sui | SUI | #18 | $3.4774 | -0.30%
+Conclusion: Today’s trending cryptos are led by Ondo (ONDO) with a 9.27% 24h pump, followed closely by Somnia (SOMI) and Aerodrome Finance (AERO), both flexing their gains. With 12 gainers and only 3 losers, the market’s skew is straight-up positive, but don’t get too cocky—volatility’s lurking, especially with MYX Finance (MYX) tanking -39.87% in the last 24 hours. Keep your wits about you. 
 
-Enter your message: give me information about SUI
-EventName.FINAL_RESPONSE
-Overall Sentiment: Neutral (score: 49/100)
+User Message: what do you think about SUI ?
+Agent Response Message : Sui is sitting pretty at rank 18 with a price of $3.65. It’s had a solid 24 hours, gaining 0.86%. Over the last week, it’s up 10.50%, showing some real momentum. However, the 30-day picture isn’t as rosy, with a drop of 4.68%. That longer-term dip might give some pause, but its current trajectory looks promising.
+| Name   | Rank   | Price (USD)   | 24h %   | 7d %    | 30d %   |
+|--------|--------|---------------|---------|---------|---------|
+| Sui    | #18    | $3.6500       | +0.86%  | +10.50% | -4.68%  |
 
-Name | Rank | Price (USD) | 24h % | 7d % | 30d %
---- | --- | --- | --- | --- | ---
-Sui | #18 | $3.4700 | -0.77% | +5.58% | -9.18%
+News Headlines:
+| Title                                                                                                                                          | Source                                                                                                                                                                           | Published            |
+|------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|
+| Crypto News Today: BTC, ETH, XRP, BNB, SOL, DOGE, ADA, LINK, SUI (Sept. 10)                                                                    | https://cryptopanic.com/news/25145056/Crypto-News-Today-BTC-ETH-XRP-BNB-SOL-DOGE-ADA-LINK-SUI-Sept-10                                                                            | 2025-09-10T23:16:52Z |
+| Price predictions 9/10: BTC, ETH, XRP, BNB, SOL, DOGE, ADA, LINK, HYPE, SUI                                                                    | https://cryptopanic.com/news/25140938/Price-predictions-910-BTC-ETH-XRP-BNB-SOL-DOGE-ADA-LINK-HYPE-SUI                                                                           | 2025-09-10T19:57:26Z |
+| Sui Price Prediction: Can SUI Surge Toward $7?                                                                                                 | https://cryptopanic.com/news/25139752/Sui-Price-Prediction-Can-SUI-Surge-Toward-7                                                                                                | 2025-09-10T19:02:21Z |
+| Altcoin Signals: Michaël van de Poppe Highlights APT, Sui, and Cardano Upside Potential                                                        | https://cryptopanic.com/news/25141069/Altcoin-Signals-Michael-van-de-Poppe-Highlights-APT-Sui-and-Cardano-Upside-Potential                                                       | 2025-09-10T18:00:37Z |
+| SUI Price Prediction as Mysten Labs Meets SEC Ahead of ETF Decision—Is $7.5 Next?                                                              | https://cryptopanic.com/news/25136938/SUI-Price-Prediction-as-Mysten-Labs-Meets-SEC-Ahead-of-ETF-DecisionIs-75-Next                                                              | 2025-09-10T16:40:40Z |
+| SUI At A Crossroads, Can It Break $3.52 And Ignite The Next Surge?                                                                             | https://cryptopanic.com/news/25132834/SUI-At-A-Crossroads-Can-It-Break-352-And-Ignite-The-Next-Surge                                                                             | 2025-09-10T14:00:59Z |
+| Trader Says Bitcoin Primed To Begin ‘Vertical Acceleration’ After Breaking Out Above This Level, Updates Outlook on Ethereum, Dogecoin and Sui | https://cryptopanic.com/news/25131306/Trader-Says-Bitcoin-Primed-To-Begin-Vertical-Acceleration-After-Breaking-Out-Above-This-Level-Updates-Outlook-on-Ethereum-Dogecoin-and-Sui | 2025-09-10T11:45:11Z |
+| SEC Holds Talks on Sui Blockchain Ahead of ETF Deadline                                                                                        | https://cryptopanic.com/news/25127790/SEC-Holds-Talks-on-Sui-Blockchain-Ahead-of-ETF-Deadline                                                                                    | 2025-09-10T10:30:55Z |
 
-Sui holds steady with a slight 24h dip and a weekly gain, while headlines highlight ecosystem activity and a recent protocol incident.
+The crypto scene is buzzing with BTC and ETH holding steady while altcoins like SUI and APT flex their muscles. SUI’s ETF showdown with the SEC could rocket it to $7.5 if things go right, but regulation risks are real as f***. Neutral sentiment means caution, but if Bitcoin breaks out, we’re in for a wild ride—keep your eyes glued to these bad boys.
 
-Title | Source | Published
---- | --- | ---
-Lion Group Moves Solana and Sui Holdings to Hyperliquid | https://cryptopanic.com/news/25071764/Lion-Group-Moves-Solana-and-Sui-Holdings-to-Hyperliquid | 2025-09-08T13:45:45Z
-GoPlus Expands SafeToken Locker Service to Support Sui Blockchain | https://cryptopanic.com/news/25091783/GoPlus-Expands-SafeToken-Locker-Service-to-Support-Sui-Blockchain | 2025-09-08T13:01:08Z
-Nemo Protocol Loses $2.4M in Sui Network Hack | https://cryptopanic.com/news/25070498/Crypto-News-Nemo-Protocol-Loses-24M-in-Sui-Network-Hack | 2025-09-08T12:02:14Z
-Altcoin Shake‑Up: Which Alts Are Poised for Gains in September? | https://cryptopanic.com/news/25066835/Altcoin-Shake-Up-Which-Alts-Are-Poised-for-Biggest-Gains-in-September | 2025-09-08T10:17:59Z
+Conclusion: SUI is trending with a 24-hour gain of 0.86% and a 7-day gain of 10.50%, but it’s down 4.68% over 30 days. The news is buzzing with price predictions and SEC talks, but the overall sentiment is neutral. Keep an eye on this one. 
