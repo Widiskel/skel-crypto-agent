@@ -1,3 +1,8 @@
+import sys
+import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
+
 from sentient_agent_framework import DefaultServer
 from sentient_narrative_agent.providers.agent_provider import AgentProvider
 from sentient_narrative_agent.providers.coingecko_provider import CoinGeckoProvider
@@ -11,7 +16,7 @@ logger.info("Initializing Sentient Narrative Agent...")
 
 coingecko_provider = CoinGeckoProvider(api_key=config.coingecko_api_key)
 model_provider = AgentProvider(
-    api_key=config.fireworks_api_key, 
+    api_key=config.fireworks_api_key,
     model_name=config.fireworks_model_name
 )
 
