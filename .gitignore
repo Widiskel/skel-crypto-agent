@@ -1,13 +1,6 @@
-# Ignore the virtual environment folder
-venv/
-
-# Ignore the file with secret keys
-.env
-
-# Ignore Python cache files
 __pycache__/
-*.pyc
-
-*.egg-info
-
+*.py[cod]
+.env
+.env.*
+venv/
 .DS_Store

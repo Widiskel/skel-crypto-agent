@@ -1,17 +1,17 @@
 [project]
-# Defines metadata about your project for pip
-name = "sentient_narrative_agent"
+name = "skel-crypto-agent"
 version = "0.1.0"
 requires-python = ">=3.12"
-description = "An AI agent to analyze cryptocurrency market narratives."
+description = "AI chat agent (HTTP) built on the Sentient Agent Framework."
 dependencies = [
-  "sentient-agent-framework",
-  "python-dotenv",
-  "openai",
-  "httpx",
-  "loguru",
-  "pydantic",
-  "tabulate",
+  "sentient-agent-framework>=0.3.0,<0.4.0",
+  "python-dotenv>=1.1,<2.0",
+  "openai>=1.107,<2.0",
+  "httpx>=0.26,<0.27",
+  "loguru>=0.7,<0.8",
+  "pydantic>=2.11,<3.0",
+  "fastapi>=0.115,<0.116",
+  "uvicorn>=0.34,<0.35",
 ]
 
 [build-system]
