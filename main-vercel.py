@@ -1,9 +1,12 @@
 import os
 import sys
+from pathlib import Path
+
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from sentient_agent_framework import DefaultServer
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "src")))
-
-from sentient_agent_framework import DefaultServer
 
 from skel_crypto_agent.agent import CryptoChatAgent
 from skel_crypto_agent.config.settings import config
@@ -42,3 +45,13 @@ agent = CryptoChatAgent(
 
 server = DefaultServer(agent)
 app = server._app
+
+favicon_dir = Path(__file__).resolve().parent / "favicon"
+if favicon_dir.exists():
+    app.mount("/favicon", StaticFiles(directory=str(favicon_dir)), name="favicon")
+    favicon_path = favicon_dir / "favicon.ico"
+    if favicon_path.exists():
+
+        @app.get("/favicon.ico")
+        async def favicon() -> FileResponse:  # type: ignore[override]
+            return FileResponse(favicon_path)
