@@ -12,7 +12,9 @@ from skel_crypto_agent.agent import CryptoChatAgent
 from skel_crypto_agent.config.settings import config
 from skel_crypto_agent.providers.agent_provider import AgentProvider
 from skel_crypto_agent.providers.price_service import PriceService
+from skel_crypto_agent.providers.project_analyzer import ProjectAnalyzer
 from skel_crypto_agent.providers.web_search import TavilySearchClient
+from skel_crypto_agent.providers.gas_service import GasService
 from skel_crypto_agent.utils.logger import setup_logger
 
 logger = setup_logger()
@@ -36,11 +38,20 @@ if config.tavily_api_key:
         max_results=config.tavily_max_results,
     )
 
+project_analyzer = ProjectAnalyzer(
+    api_key=config.cryptorank_api_key,
+    tavily_client=search_client,
+)
+
+gas_service = GasService(price_service=price_service)
+
 agent = CryptoChatAgent(
     name="Skel Crypto Agent",
     model_provider=model_provider,
     price_service=price_service,
     search_client=search_client,
+    project_analyzer=project_analyzer,
+    gas_service=gas_service,
 )
 
 server = DefaultServer(agent)
